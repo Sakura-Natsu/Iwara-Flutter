@@ -20,9 +20,9 @@ jobs:
     env:
       KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
@@ -83,14 +83,26 @@ jobs:
 
       - name: Publish release
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: dist/*.apk
-          body_path: release_notes.md
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="$GITHUB_REF_NAME"
+          # 失败时把 gh 的错误输出写成注解，便于在 Actions 页面直接查看原因
+          fail() { echo "::error title=发布 Release 失败::$(tr '\n' ' ' < gh_error.log)"; exit 1; }
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            # 重新运行时更新已有 Release
+            gh release upload "$TAG" dist/*.apk --clobber --repo "$GITHUB_REPOSITORY" 2> gh_error.log || fail
+            gh release edit "$TAG" --notes-file release_notes.md --repo "$GITHUB_REPOSITORY" 2> gh_error.log || fail
+          else
+            gh release create "$TAG" dist/*.apk \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "$TAG" \
+              --notes-file release_notes.md 2> gh_error.log || fail
+          fi
 
       - name: Upload artifacts
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: apk
           path: dist/*.apk
