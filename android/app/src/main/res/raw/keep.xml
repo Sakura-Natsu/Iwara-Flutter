@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- audio_service 通过名称动态引用通知图标，防止 Release 构建时被资源压缩删除 -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/audio_service_*,@drawable/ic_notification" />
