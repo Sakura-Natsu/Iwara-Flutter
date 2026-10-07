@@ -1,7 +1,7 @@
 name: iwara_flutter
 description: "iwara.tv 鐨勭涓夋柟 Android 瀹㈡埛绔紙闈炲畼鏂癸級"
 publish_to: 'none'
-version: 1.0.2+3
+version: 1.1.0+4
 
 environment:
   sdk: ^3.12.0

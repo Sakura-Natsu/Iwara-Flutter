@@ -11,6 +11,7 @@ import '../../core/settings.dart';
 import '../../providers.dart';
 import '../../services/download_service.dart';
 import '../../widgets/states.dart';
+import '../../widgets/update_dialog.dart';
 
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
@@ -31,11 +32,14 @@ class SettingsPage extends ConsumerWidget {
     final theme = Theme.of(context);
 
     Widget header(String text) => Padding(
-          padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
-          child: Text(text,
-              style: theme.textTheme.labelLarge
-                  ?.copyWith(color: theme.colorScheme.primary)),
-        );
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
+      child: Text(
+        text,
+        style: theme.textTheme.labelLarge?.copyWith(
+          color: theme.colorScheme.primary,
+        ),
+      ),
+    );
 
     return Scaffold(
       appBar: AppBar(title: const Text('设置')),
@@ -75,8 +79,11 @@ class SettingsPage extends ConsumerWidget {
                           radius: 16,
                           backgroundColor: Color(c),
                           child: s.seedColor == c
-                              ? const Icon(Icons.check,
-                                  size: 18, color: Colors.white)
+                              ? const Icon(
+                                  Icons.check,
+                                  size: 18,
+                                  color: Colors.white,
+                                )
                               : null,
                         ),
                       ),
@@ -89,9 +96,11 @@ class SettingsPage extends ConsumerWidget {
           SwitchListTile(
             secondary: const Icon(Icons.vpn_key_outlined),
             title: const Text('使用 HTTP 代理'),
-            subtitle: Text(s.proxyEnabled
-                ? '${s.proxyHost}:${s.proxyPort}'
-                : '关闭时直连（可配合系统 VPN 使用）'),
+            subtitle: Text(
+              s.proxyEnabled
+                  ? '${s.proxyHost}:${s.proxyPort}'
+                  : '关闭时直连（可配合系统 VPN 使用）',
+            ),
             value: s.proxyEnabled,
             onChanged: (v) async {
               await n.update((x) => x.copyWith(proxyEnabled: v));
@@ -193,11 +202,13 @@ class SettingsPage extends ConsumerWidget {
               underline: const SizedBox.shrink(),
               items: const [
                 DropdownMenuItem(value: 'gpu', child: Text('默认（硬解）')),
-                DropdownMenuItem(value: 'mediacodec', child: Text('MediaCodec 直出')),
+                DropdownMenuItem(
+                  value: 'mediacodec',
+                  child: Text('MediaCodec 直出'),
+                ),
                 DropdownMenuItem(value: 'gpu-sw', child: Text('软件解码')),
               ],
-              onChanged: (v) =>
-                  n.update((x) => x.copyWith(videoOutput: v)),
+              onChanged: (v) => n.update((x) => x.copyWith(videoOutput: v)),
             ),
           ),
           header('其他'),
@@ -222,31 +233,107 @@ class SettingsPage extends ConsumerWidget {
               if (context.mounted) showToast(context, '已清除');
             },
           ),
+          header('关于'),
           FutureBuilder(
             future: PackageInfo.fromPlatform(),
-            builder: (context, snap) => AboutListTile(
-              icon: const Icon(Icons.info_outline),
-              applicationName: 'Iwara',
-              applicationVersion: snap.data?.version,
-              applicationIcon:
-                  Image.asset('assets/icon/icon.png', width: 48, height: 48),
+            builder: (context, snap) => ListTile(
+              leading: const Icon(Icons.info_outline),
+              title: const Text('Iwara Flutter'),
+              subtitle: Text(
+                snap.data == null
+                    ? 'iwara.tv 第三方客户端'
+                    : '版本 v${snap.data!.version}',
+              ),
+              onTap: () => _showAbout(context, snap.data?.version),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.system_update_outlined),
+            title: const Text('检查更新'),
+            onTap: () => checkUpdateManually(context, ref),
+          ),
+          SwitchListTile(
+            secondary: const Icon(Icons.update),
+            title: const Text('自动检查更新'),
+            subtitle: const Text('启动时检查 GitHub 上的新版本'),
+            value: s.autoCheckUpdate,
+            onChanged: (v) => n.update((x) => x.copyWith(autoCheckUpdate: v)),
+          ),
+          ListTile(
+            leading: const Icon(Icons.code),
+            title: const Text('GitHub 仓库'),
+            subtitle: const Text(AppRepo.slug),
+            trailing: const Icon(Icons.open_in_new, size: 18),
+            onTap: () => _open(AppRepo.url),
+          ),
+          ListTile(
+            leading: const Icon(Icons.bug_report_outlined),
+            title: const Text('问题反馈'),
+            subtitle: const Text('在 GitHub Issues 中提交问题或建议'),
+            trailing: const Icon(Icons.open_in_new, size: 18),
+            onTap: () => _open(AppRepo.issues),
+          ),
+          ListTile(
+            leading: const Icon(Icons.description_outlined),
+            title: const Text('开源许可'),
+            subtitle: const Text('GPL-3.0 · 第三方库许可'),
+            onTap: () => showLicensePage(
+              context: context,
+              applicationName: 'Iwara Flutter',
+              applicationIcon: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Image.asset(
+                  'assets/icon/icon.png',
+                  width: 64,
+                  height: 64,
+                ),
+              ),
               applicationLegalese: 'GPL-3.0 License',
-              aboutBoxChildren: const [
-                Text('iwara.tv 的第三方 Android 客户端，与 Iwara 官方无关。\n'
-                    '应用图标中的初音未来形象 © Crypton Future Media, INC. www.piapro.net'),
-              ],
-              child: Text('关于 ${snap.data == null ? '' : 'v${snap.data!.version}'}'),
             ),
           ),
           ListTile(
             leading: const Icon(Icons.language),
-            title: const Text('访问官网'),
-            onTap: () => launchUrl(Uri.parse(IwaraConst.siteUrl),
-                mode: LaunchMode.externalApplication),
+            title: const Text('访问 Iwara 官网'),
+            trailing: const Icon(Icons.open_in_new, size: 18),
+            onTap: () => _open(IwaraConst.siteUrl),
           ),
           const SizedBox(height: 24),
         ],
       ),
+    );
+  }
+
+  static Future<void> _open(String url) =>
+      launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+
+  void _showAbout(BuildContext context, String? version) {
+    showAboutDialog(
+      context: context,
+      applicationName: 'Iwara Flutter',
+      applicationVersion: version == null ? null : 'v$version',
+      applicationIcon: Image.asset(
+        'assets/icon/icon.png',
+        width: 48,
+        height: 48,
+      ),
+      applicationLegalese: 'GPL-3.0 License',
+      children: [
+        const SizedBox(height: 16),
+        const Text('iwara.tv 的第三方 Android 客户端，与 Iwara 官方无关。'),
+        const SizedBox(height: 8),
+        InkWell(
+          onTap: () => _open(AppRepo.url),
+          child: Text(
+            'github.com/${AppRepo.slug}',
+            style: TextStyle(color: Theme.of(context).colorScheme.primary),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          '应用图标中的初音未来形象 © Crypton Future Media, INC. www.piapro.net',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ],
     );
   }
 
@@ -264,30 +351,41 @@ class SettingsPage extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('HTTP 代理'),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          TextField(
-            controller: host,
-            decoration: const InputDecoration(
-                labelText: '主机', hintText: '127.0.0.1'),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: port,
-            keyboardType: TextInputType.number,
-            decoration:
-                const InputDecoration(labelText: '端口', hintText: '7890'),
-          ),
-          const SizedBox(height: 8),
-          Text('Clash 等代理软件一般为 127.0.0.1:7890，模拟器访问电脑代理用 10.0.2.2',
-              style: Theme.of(ctx).textTheme.bodySmall),
-        ]),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: host,
+              decoration: const InputDecoration(
+                labelText: '主机',
+                hintText: '127.0.0.1',
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: port,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: '端口',
+                hintText: '7890',
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Clash 等代理软件一般为 127.0.0.1:7890，模拟器访问电脑代理用 10.0.2.2',
+              style: Theme.of(ctx).textTheme.bodySmall,
+            ),
+          ],
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('取消')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('保存')),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('保存'),
+          ),
         ],
       ),
     );
@@ -297,8 +395,15 @@ class SettingsPage extends ConsumerWidget {
       if (context.mounted) showToast(context, '地址或端口无效');
       return;
     }
-    await ref.read(settingsProvider.notifier).update((x) =>
-        x.copyWith(proxyHost: host.text.trim(), proxyPort: p, proxyEnabled: true));
+    await ref
+        .read(settingsProvider.notifier)
+        .update(
+          (x) => x.copyWith(
+            proxyHost: host.text.trim(),
+            proxyPort: p,
+            proxyEnabled: true,
+          ),
+        );
     await _applyProxy(ref);
   }
 

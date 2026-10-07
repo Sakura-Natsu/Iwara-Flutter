@@ -58,6 +58,9 @@ jobs:
       - name: Analyze
         run: flutter analyze
 
+      - name: Test
+        run: flutter test
+
       - name: Build APK
         run: flutter build apk --release --split-per-abi
 
@@ -70,12 +73,20 @@ jobs:
           done
           ls -l dist
 
+      - name: Extract release notes
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          # 取 CHANGELOG.md 中「## <tag>」到下一个「## 」之间的内容
+          awk -v tag="## ${GITHUB_REF_NAME}" 'index($0, tag) == 1 { f = 1; next } /^## / { if (f) exit } f' CHANGELOG.md > release_notes.md
+          [ -s release_notes.md ] || echo "详见提交记录。" > release_notes.md
+          cat release_notes.md
+
       - name: Publish release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: dist/*.apk
-          generate_release_notes: true
+          body_path: release_notes.md
 
       - name: Upload artifacts
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}

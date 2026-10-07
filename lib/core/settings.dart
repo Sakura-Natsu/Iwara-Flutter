@@ -25,6 +25,8 @@ class AppSettings {
     this.resumePlayback = true,
     this.longPressSpeed = 2.0,
     this.videoOutput = 'gpu',
+    this.autoCheckUpdate = true,
+    this.ignoredVersion,
     this.videoSalt,
   });
 
@@ -46,6 +48,12 @@ class AppSettings {
   /// 视频输出模式：gpu（GPU 渲染 + 硬解）/ gpu-sw（软解）/ mediacodec（MediaCodec 直出）。
   final String videoOutput;
 
+  /// 启动时自动检查 GitHub 上的新版本。
+  final bool autoCheckUpdate;
+
+  /// 用户选择「忽略此版本」的版本号（如 1.2.0）。
+  final String? ignoredVersion;
+
   /// 从前端 JS 自动提取到的签名盐值；为空时使用内置默认值。
   final String? videoSalt;
 
@@ -66,6 +74,8 @@ class AppSettings {
     bool? resumePlayback,
     double? longPressSpeed,
     String? videoOutput,
+    bool? autoCheckUpdate,
+    String? ignoredVersion,
     String? videoSalt,
   }) {
     return AppSettings(
@@ -82,6 +92,8 @@ class AppSettings {
       resumePlayback: resumePlayback ?? this.resumePlayback,
       longPressSpeed: longPressSpeed ?? this.longPressSpeed,
       videoOutput: videoOutput ?? this.videoOutput,
+      autoCheckUpdate: autoCheckUpdate ?? this.autoCheckUpdate,
+      ignoredVersion: ignoredVersion ?? this.ignoredVersion,
       videoSalt: videoSalt ?? this.videoSalt,
     );
   }
@@ -89,8 +101,11 @@ class AppSettings {
   static AppSettings load(SharedPreferences p) {
     const d = AppSettings();
     return AppSettings(
-      themeMode: ThemeMode.values[(p.getInt('themeMode') ?? d.themeMode.index)
-          .clamp(0, ThemeMode.values.length - 1)],
+      themeMode:
+          ThemeMode.values[(p.getInt('themeMode') ?? d.themeMode.index).clamp(
+            0,
+            ThemeMode.values.length - 1,
+          )],
       seedColor: p.getInt('seedColor') ?? d.seedColor,
       proxyEnabled: p.getBool('proxyEnabled') ?? d.proxyEnabled,
       proxyHost: p.getString('proxyHost') ?? d.proxyHost,
@@ -103,6 +118,8 @@ class AppSettings {
       resumePlayback: p.getBool('resumePlayback') ?? d.resumePlayback,
       longPressSpeed: p.getDouble('longPressSpeed') ?? d.longPressSpeed,
       videoOutput: p.getString('videoOutput') ?? d.videoOutput,
+      autoCheckUpdate: p.getBool('autoCheckUpdate') ?? d.autoCheckUpdate,
+      ignoredVersion: p.getString('ignoredVersion'),
       videoSalt: p.getString('videoSalt'),
     );
   }
@@ -121,6 +138,10 @@ class AppSettings {
     await p.setBool('resumePlayback', resumePlayback);
     await p.setDouble('longPressSpeed', longPressSpeed);
     await p.setString('videoOutput', videoOutput);
+    await p.setBool('autoCheckUpdate', autoCheckUpdate);
+    if (ignoredVersion != null) {
+      await p.setString('ignoredVersion', ignoredVersion!);
+    }
     if (videoSalt != null) await p.setString('videoSalt', videoSalt!);
   }
 }
@@ -135,5 +156,6 @@ class SettingsNotifier extends Notifier<AppSettings> {
   }
 }
 
-final settingsProvider =
-    NotifierProvider<SettingsNotifier, AppSettings>(SettingsNotifier.new);
+final settingsProvider = NotifierProvider<SettingsNotifier, AppSettings>(
+  SettingsNotifier.new,
+);

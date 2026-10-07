@@ -2,16 +2,36 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/settings.dart';
 import '../../providers.dart';
+import '../../widgets/update_dialog.dart';
 
 /// 底部导航框架。
-class HomeShell extends ConsumerWidget {
+class HomeShell extends ConsumerStatefulWidget {
   const HomeShell({super.key, required this.shell});
 
   final StatefulNavigationShell shell;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeShell> createState() => _HomeShellState();
+}
+
+class _HomeShellState extends ConsumerState<HomeShell> {
+  StatefulNavigationShell get shell => widget.shell;
+
+  @override
+  void initState() {
+    super.initState();
+    // 启动后稍等片刻再检查更新，避免与首屏请求争抢网络
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted && ref.read(settingsProvider).autoCheckUpdate) {
+        checkUpdateSilently(context, ref);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final unread = ref.watch(countsProvider).value?.total ?? 0;
     return Scaffold(
       body: shell,

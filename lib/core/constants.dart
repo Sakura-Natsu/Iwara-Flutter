@@ -14,6 +14,16 @@ abstract final class IwaraConst {
   static const pageSize = 32;
 }
 
+/// 本项目的 GitHub 仓库（关于页、检查更新）。
+abstract final class AppRepo {
+  static const slug = 'Sakura-Natsu/Iwara-Flutter';
+  static const url = 'https://github.com/$slug';
+  static const issues = '$url/issues';
+  static const releases = '$url/releases';
+  static const latestReleaseApi =
+      'https://api.github.com/repos/$slug/releases/latest';
+}
+
 /// 排序方式。
 enum SortType {
   trending('trending', '流行'),
