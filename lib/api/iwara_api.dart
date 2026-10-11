@@ -89,22 +89,60 @@ class IwaraApi {
   Future<void> sendView(ContentType type, String id) =>
       client.post('${type.path}/$id/view');
 
-  /// 解析播放源。签名失败时自动尝试从官网前端更新盐值后重试一次。
+  DateTime? _saltCheckedAt;
+  Future<void>? _saltCheck;
+
+  /// 解析播放源。签名失效时自动尝试从官网前端更新盐值后重试一次。
+  ///
+  /// 盐值不对时文件服务器不报错，而是只返回 360 / preview 两档，
+  /// 所以以「清单里没有 Source」作为盐值失效的信号。
   Future<List<VideoSource>> videoSources(Video video) async {
     final fileUrl = video.fileUrl;
     final fileId = video.file?.id;
     if (fileUrl == null || fileId == null) {
       throw ApiException('该视频没有可播放的文件');
     }
+    final usedSalt = saltProvider();
+    final List<VideoSource> list;
     try {
-      return await _fetchSources(fileUrl, fileId, saltProvider());
+      list = await _fetchSources(fileUrl, fileId, usedSalt);
     } on ApiException catch (e) {
       if (e.status != 403 && e.status != 401 && e.status != 400) rethrow;
-      final salt = await fetchSaltFromSite();
-      if (salt == null || salt == saltProvider()) rethrow;
-      onSaltUpdated(salt);
+      final salt = await _newerSalt(usedSalt);
+      if (salt == null) rethrow;
       return _fetchSources(fileUrl, fileId, salt);
     }
+    if (list.any((s) => s.name == 'Source')) return list;
+    final salt = await _newerSalt(usedSalt);
+    if (salt == null) return list;
+    try {
+      return await _fetchSources(fileUrl, fileId, salt);
+    } on ApiException {
+      // 重签后的请求失败时，至少保留已经拿到的低清晰度
+      return list;
+    }
+  }
+
+  /// 返回比 [usedSalt] 新的盐值，没有则返回 null。
+  /// 必要时检查官网；并发调用共用同一次检查。
+  Future<String?> _newerSalt(String usedSalt) async {
+    if (saltProvider() == usedSalt) {
+      await (_saltCheck ??= _checkSiteSalt().whenComplete(() => _saltCheck = null));
+    }
+    final salt = saltProvider();
+    return salt == usedSalt ? null : salt;
+  }
+
+  /// 从官网取盐值，有变化时保存。10 分钟内最多检查一次。
+  Future<void> _checkSiteSalt() async {
+    final now = DateTime.now();
+    final last = _saltCheckedAt;
+    if (last != null && now.difference(last) < const Duration(minutes: 10)) {
+      return;
+    }
+    _saltCheckedAt = now;
+    final salt = await fetchSaltFromSite();
+    if (salt != null && salt != saltProvider()) onSaltUpdated(salt);
   }
 
   Future<List<VideoSource>> _fetchSources(

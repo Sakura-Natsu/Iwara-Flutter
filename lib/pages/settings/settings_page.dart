@@ -216,7 +216,7 @@ class SettingsPage extends ConsumerWidget {
             leading: const Icon(Icons.key_outlined),
             title: const Text('视频签名'),
             subtitle: Text(
-              '当前：${s.videoSalt ?? IwaraConst.defaultVideoSalt}\n播放源获取失败时会自动从官网更新',
+              '当前：${s.videoSalt ?? IwaraConst.defaultVideoSalt}\n签名失效（只剩 360p）时会自动从官网更新',
             ),
             isThreeLine: true,
             trailing: TextButton(
